@@ -1,0 +1,32 @@
+name: mlops-text-classification
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - scikit-learn
+  - scipy
+  - matplotlib
+  - nltk
+  - xgboost
+  - mlflow
+  - dagshub
+  - pip:
+    - mlflow-skinny
+    - python-dotenv
+    - joblib
+    - requests
+    - tqdm
+    - regex
+    - yarl
+    - websocket-client
+    - tornado
+    - prettytable
+    - cloudpickle
+    - protobuf
+    - itsdangerous
+    - Werkzeug
+    - click
+    - jinja2

@@ -1,0 +1,7 @@
+data_ingestion:
+  test_size: 0.2
+  bucket_name: "text-classification-982005835553-eu-north-1-an"
+  data_file: "data.csv"
+
+feature_engineering:
+  max_features: 5000
