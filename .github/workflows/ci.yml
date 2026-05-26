@@ -1,0 +1,80 @@
+name: CI Pipeline
+
+on: push
+
+jobs:
+  project-testing:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # =====================================================
+      # RUN DVC PIPELINE
+      # =====================================================
+
+      - name: Run pipeline
+        env:
+          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+        run: |
+          dvc repro
+
+      # =====================================================
+      # RUN MODEL TESTS
+      # =====================================================
+
+      - name: Run model tests
+        env:
+          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+        run: |
+          python -m unittest tests/test_model.py
+
+      # =====================================================
+      # PROMOTE MODEL
+      # =====================================================
+
+      - name: Promote model to production
+        if: success()
+        env:
+          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+        run: |
+          python scripts/promote_model.py
+
+      # =====================================================
+      # RUN FLASK TESTS
+      # =====================================================
+
+      - name: Run Flask app tests
+        if: success()
+        env:
+          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+        run: |
+          python -m unittest tests/test_flask_app.py
+
+      # =====================================================
+      # AWS LOGIN
+      # =====================================================

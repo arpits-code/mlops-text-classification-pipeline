@@ -20,6 +20,9 @@ from dotenv import load_dotenv
 
 import logging
 
+# =========================================================
+# PROJECT ROOT SETUP
+# =========================================================
 
 PROJECT_ROOT = os.path.abspath(
     os.path.join(
@@ -35,6 +38,9 @@ if PROJECT_ROOT not in sys.path:
 
     sys.path.insert(0, PROJECT_ROOT)
 
+# =========================================================
+# LOAD ENV VARIABLES
+# =========================================================
 
 def load_env():
 
@@ -55,8 +61,11 @@ def load_env():
             override=True
         )
 
-
 load_env()
+
+# =========================================================
+# DAGSHUB + MLFLOW CONFIG
+# =========================================================
 
 dagshub_token = os.getenv(
     "dagshubtoken"
@@ -82,6 +91,9 @@ mlflow_tracking_uri = os.getenv(
     "MLFLOW_TRACKING_URI"
 ) or f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"
 
+# =========================================================
+# VALIDATE ENV VARIABLES
+# =========================================================
 
 if not dagshub_username:
 
@@ -95,6 +107,10 @@ if not dagshub_token:
         "dagshubtoken missing in .env"
     )
 
+# =========================================================
+# SET MLFLOW AUTH
+# =========================================================
+
 os.environ["MLFLOW_TRACKING_USERNAME"] = (
     str(dagshub_username)
 )
@@ -103,16 +119,32 @@ os.environ["MLFLOW_TRACKING_PASSWORD"] = (
     str(dagshub_token)
 )
 
+os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "120"
+
+# =========================================================
+# INITIALIZE DAGSHUB
+# =========================================================
+
 dagshub.init(
     repo_owner=repo_owner,
     repo_name=repo_name,
     mlflow=True
 )
 
+# =========================================================
+# SET TRACKING URI
+# =========================================================
+
 mlflow.set_tracking_uri(
     mlflow_tracking_uri
 )
 
+print("\nMLFLOW TRACKING URI:")
+print(mlflow_tracking_uri)
+
+# =========================================================
+# LOAD MODEL
+# =========================================================
 
 def load_model(
     file_path: str
@@ -140,6 +172,9 @@ def load_model(
 
         raise
 
+# =========================================================
+# LOAD DATA
+# =========================================================
 
 def load_data(
     file_path: str
@@ -165,6 +200,9 @@ def load_data(
 
         raise
 
+# =========================================================
+# EVALUATE MODEL
+# =========================================================
 
 def evaluate_model(
     clf,
@@ -218,6 +256,9 @@ def evaluate_model(
 
         raise
 
+# =========================================================
+# SAVE METRICS
+# =========================================================
 
 def save_metrics(
     metrics,
@@ -242,10 +283,13 @@ def save_metrics(
         file_path
     )
 
+# =========================================================
+# SAVE MODEL INFO
+# =========================================================
 
 def save_model_info(
     run_id,
-    model_path,
+    model_uri,
     file_path
 ):
 
@@ -257,7 +301,7 @@ def save_model_info(
     model_info = {
 
         "run_id": run_id,
-        "model_path": model_path
+        "model_uri": model_uri
     }
 
     with open(file_path, 'w') as file:
@@ -272,13 +316,17 @@ def save_model_info(
         'Experiment info saved'
     )
 
+# =========================================================
+# MAIN
+# =========================================================
 
 def main():
 
     try:
 
         experiment_name = os.getenv(
-            "EXPERIMENT_NAME"
+            "EXPERIMENT_NAME",
+            "bow_experiment"
         )
 
         mlflow.set_experiment(
@@ -287,9 +335,19 @@ def main():
 
         with mlflow.start_run() as run:
 
+            print("\nSTARTING MLFLOW RUN\n")
+
+            # =================================================
+            # LOAD MODEL
+            # =================================================
+
             clf = load_model(
                 './models/model.pkl'
             )
+
+            # =================================================
+            # LOAD TEST DATA
+            # =================================================
 
             test_data = load_data(
                 './data/processed/test_bow.csv'
@@ -303,16 +361,31 @@ def main():
                 test_data.iloc[:, -1].values
             )
 
+            # =================================================
+            # EVALUATE MODEL
+            # =================================================
+
             metrics = evaluate_model(
                 clf,
                 X_test,
                 y_test
             )
 
+            print("\nMODEL METRICS:")
+            print(metrics)
+
+            # =================================================
+            # SAVE METRICS
+            # =================================================
+
             save_metrics(
                 metrics,
                 'reports/metrics.json'
             )
+
+            # =================================================
+            # LOG METRICS
+            # =================================================
 
             for (
                 metric_name,
@@ -323,6 +396,10 @@ def main():
                     metric_name,
                     metric_value
                 )
+
+            # =================================================
+            # LOG PARAMETERS
+            # =================================================
 
             if hasattr(clf, 'get_params'):
 
@@ -338,24 +415,39 @@ def main():
                         param_value
                     )
 
-            mlflow.sklearn.log_model(
+            # =================================================
+            # REGISTER MODEL
+            # =================================================
+
+            model_info = mlflow.sklearn.log_model(
                 sk_model=clf,
-                artifact_path="model"
+                artifact_path="model",
+                registered_model_name="my_model"
             )
 
-            print(
-                "\nMODEL LOGGED SUCCESSFULLY\n"
-            )
+            print("\nMODEL REGISTERED SUCCESSFULLY\n")
 
             print(
                 f"RUN ID: {run.info.run_id}"
             )
 
+            print(
+                f"MODEL URI: {model_info.model_uri}"
+            )
+
+            # =================================================
+            # SAVE MODEL INFO
+            # =================================================
+
             save_model_info(
                 run.info.run_id,
-                "model",
+                model_info.model_uri,
                 'reports/experiment_info.json'
             )
+
+            # =================================================
+            # LOG ARTIFACTS
+            # =================================================
 
             mlflow.log_artifact(
                 'reports/metrics.json'
@@ -369,6 +461,10 @@ def main():
                 'Model evaluation completed successfully'
             )
 
+            print(
+                "\nPIPELINE COMPLETED SUCCESSFULLY\n"
+            )
+
     except Exception as e:
 
         logging.error(
@@ -376,8 +472,15 @@ def main():
             e
         )
 
+        print("\nPIPELINE FAILED\n")
+
+        print(e)
+
         raise
 
+# =========================================================
+# RUN
+# =========================================================
 
 if __name__ == '__main__':
 
