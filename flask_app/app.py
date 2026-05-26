@@ -11,10 +11,13 @@ import string
 import re
 import dagshub
 import numpy as np
-
+import dotenv
+from dotenv import load_dotenv
 import warnings
 warnings.simplefilter("ignore", UserWarning)
 warnings.filterwarnings("ignore")
+
+load_dotenv()
 
 def lemmatization(text):
     """Lemmatize the text."""
@@ -77,19 +80,30 @@ def normalize_text(text):
 # Below code block is for production use
 # -------------------------------------------------------------------------------------
 # Set up DagsHub credentials for MLflow tracking
-dagshubtoken = os.getenv("dagshubtoken")
-if not dagshubtoken:
-    raise EnvironmentError("DAGSHUB_TOKEN environment variable is not set")
 
-os.environ["MLFLOW_TRACKING_USERNAME"] = "arpits-code"  # Replace with your DagsHub username
+dagshubtoken = os.getenv("dagshubtoken")
+
+if not dagshubtoken:
+    raise EnvironmentError(
+        "dagshubtoken environment variable is not set"
+    )
+
+os.environ["MLFLOW_TRACKING_USERNAME"] = "arpits-code"
 os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshubtoken
 
 dagshub_url = "https://dagshub.com"
-repo_owner = "arpits-code"  # Replace with your DagsHub username
+repo_owner = "arpits-code"
 repo_name = "mlops-text-classification-pipeline"
-# Set up MLflow tracking URI
-mlflow.set_tracking_uri(f'{dagshub_url}/{repo_owner}/{repo_name}.mlflow')
-# -------------------------------------------------------------------------------------
+
+mlflow.set_tracking_uri(
+    f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"
+)
+
+dagshub.init(
+    repo_owner=repo_owner,
+    repo_name=repo_name,
+    mlflow=True
+)
 
 
 # Initialize Flask app
@@ -113,19 +127,52 @@ PREDICTION_COUNT = Counter(
 
 # ------------------------------------------------------------------------------------------
 # Model and vectorizer setup
-model_name = "my_model"
-def get_latest_model_version(model_name):
-    client = mlflow.MlflowClient()
-    latest_version = client.get_latest_versions(model_name, stages=["Production"])
-    if not latest_version:
-        latest_version = client.get_latest_versions(model_name, stages=["None"])
-    return latest_version[0].version if latest_version else None
+# =========================================================
+# MODEL LOADING
+# =========================================================
 
-model_version = get_latest_model_version(model_name)
-model_uri = f'models:/{model_name}/{model_version}'
-print(f"Fetching model from: {model_uri}")
-model = mlflow.pyfunc.load_model(model_uri)
-vectorizer = pickle.load(open('models/vectorizer.pkl', 'rb'))
+model_name = "my_model"
+
+try:
+
+    client = mlflow.MlflowClient()
+
+    versions = client.search_model_versions(
+        f"name='{model_name}'"
+    )
+
+    if len(versions) == 0:
+        raise Exception(
+            f"No model versions found for {model_name}"
+        )
+
+    latest_version = max(
+        versions,
+        key=lambda v: int(v.version)
+    )
+
+    model_version = latest_version.version
+
+    model_uri = f"models:/{model_name}/{model_version}"
+
+    print(f"Fetching model from: {model_uri}")
+
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    print("MLflow model loaded successfully!")
+
+except Exception as e:
+
+    print("MLflow model loading failed:")
+    print(e)
+
+    print("Loading local model.pkl instead...")
+
+    model = pickle.load(
+        open("models/model.pkl", "rb")
+    )
+
+    print("Local model loaded successfully!")
 
 # Routes
 @app.route("/")
