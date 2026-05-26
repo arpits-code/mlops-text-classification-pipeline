@@ -1,0 +1,13 @@
+numpy
+pandas
+scikit-learn
+mlflow
+dagshub
+dvc[s3]
+flask
+prometheus_client
+nltk
+python-dotenv
+matplotlib
+seaborn
+xgboost
