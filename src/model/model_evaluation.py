@@ -24,20 +24,20 @@ def load_env():
 
 
 # Below code block is for production use
-# -------------------------------------------------------------------------------------
-load_env()
-dagshub_token = os.getenv("dagshubtoken") or os.getenv("DAGSHUB_TOKEN")
+### -------------------------------------------------------------------------------------
+#load_env()
+#dagshub_token = os.getenv("dagshubtoken") or os.getenv("DAGSHUB_TOKEN")
 
-dagshub_url = "https://dagshub.com"
-repo_owner = os.getenv("DAGSHUB_REPO_OWNER", "arpits-code")
-repo_name = os.getenv("DAGSHUB_REPO_NAME", "mlops-text-classification-pipeline")
-mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI") 
+#dagshub_url = "https://dagshub.com"
+#repo_owner = os.getenv("DAGSHUB_REPO_OWNER", "arpits-code")
+#repo_name = os.getenv("DAGSHUB_REPO_NAME", "mlops-text-classification-pipeline")
+#mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI") 
 
-if dagshub_token:
-    os.environ["MLFLOW_TRACKING_USERNAME"] = dagshubusernme = os.getenv("dagshubusername") or os.getenv("DAGSHUB_USERNAME")
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+#if dagshub_token:
+ #   os.environ["MLFLOW_TRACKING_USERNAME"] = dagshubusernme = os.getenv("dagshubusername") or os.getenv("DAGSHUB_USERNAME")
+  #  os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-mlflow.set_tracking_uri(mlflow_tracking_uri)
+#mlflow.set_tracking_uri(mlflow_tracking_uri)
 # -------------------------------------------------------------------------------------
 
 # Below code block is for local use
@@ -46,6 +46,16 @@ mlflow.set_tracking_uri(mlflow_tracking_uri)
 # dagshub.init(repo_owner='vikashdas770', repo_name='YT-Capstone-Project', mlflow=True)
 # -------------------------------------------------------------------------------------
 
+# Below code block is for local use
+# -------------------------------------------------------------------------------------
+mlflow.set_tracking_uri("https://dagshub.com/arpits-code/mlops-text-classification-pipeline.mlflow")
+
+dagshub.init(
+    repo_owner="arpits-code",
+    repo_name="mlops-text-classification-pipeline",
+    mlflow=True
+)
+# -------------------------------------------------------------------------------------
 
 def load_model(file_path: str):
     """Load the trained model from a file."""

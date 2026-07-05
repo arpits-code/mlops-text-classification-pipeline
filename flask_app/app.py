@@ -132,34 +132,40 @@ def normalize_text(text):
 
     return text
 
+mlflow.set_tracking_uri("https://dagshub.com/arpits-code/mlops-text-classification-pipeline.mlflow")
 
+dagshub.init(
+    repo_owner="arpits-code",
+    repo_name="mlops-text-classification-pipeline",
+    mlflow=True
+)
 # =========================================================
 # DAGSHUB + MLFLOW CONFIGURATION
 # =========================================================
 
-dagshubtoken = os.getenv("dagshubtoken")
+# dagshubtoken = os.getenv("dagshubtoken")
 
-if not dagshubtoken:
+# if not dagshubtoken:
 
-    raise EnvironmentError(
-        "dagshubtoken environment variable is not set"
-    )
+#     raise EnvironmentError(
+#         "dagshubtoken environment variable is not set"
+#     )
 
-os.environ["MLFLOW_TRACKING_USERNAME"] = "arpits-code"
+# os.environ["MLFLOW_TRACKING_USERNAME"] = "arpits-code"
 
-os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshubtoken
+# os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshubtoken
 
-os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "120"
+# os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "120"
 
-dagshub_url = "https://dagshub.com"
+# dagshub_url = "https://dagshub.com"
 
-repo_owner = "arpits-code"
+# repo_owner = "arpits-code"
 
-repo_name = "mlops-text-classification-pipeline"
+# repo_name = "mlops-text-classification-pipeline"
 
-mlflow.set_tracking_uri(
-    f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"
-)
+# mlflow.set_tracking_uri(
+#     f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"
+# )
 
 # =========================================================
 # CONNECT DAGSHUB

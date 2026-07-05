@@ -61,39 +61,44 @@ def load_env():
             override=True
         )
 
-load_env()
+# load_env()
 
-# =========================================================
-# DAGSHUB + MLFLOW CONFIG
-# =========================================================
+# # =========================================================
+# # DAGSHUB + MLFLOW CONFIG
+# # =========================================================
 
-dagshub_token = os.getenv(
-    "dagshubtoken"
-)
+# dagshub_token = os.getenv(
+#     "dagshubtoken"
+# )
 
-dagshub_username = os.getenv(
-    "dagshubusername"
-)
+# # dagshub_username = os.getenv(
+# #     "dagshubusername"
+# # )
 
-dagshub_url = "https://dagshub.com"
+# dagshub_url = "https://dagshub.com"
 
-repo_owner = os.getenv(
-    "DAGSHUB_REPO_OWNER",
-    "arpits-code"
-)
+# repo_owner = os.getenv(
+#     "DAGSHUB_REPO_OWNER",
+#     "arpits-code"
+# )
 
-repo_name = os.getenv(
-    "DAGSHUB_REPO_NAME",
-    "mlops-text-classification-pipeline"
-)
+# repo_name = os.getenv(
+#     "DAGSHUB_REPO_NAME",
+#     "mlops-text-classification-pipeline"
+# )
 
-mlflow_tracking_uri = os.getenv(
-    "MLFLOW_TRACKING_URI"
-) or f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"
-
-# =========================================================
+# mlflow_tracking_uri = os.getenv(
+#     "MLFLOW_TRACKING_URI"
+# ) or f"{dagshub_url}/{repo_owner}/{repo_name}.mlflow"============================
 # VALIDATE ENV VARIABLES
 # =========================================================
+mlflow.set_tracking_uri("https://dagshub.com/arpits-code/mlops-text-classification-pipeline.mlflow")
+
+dagshub.init(
+    repo_owner="arpits-code",
+    repo_name="mlops-text-classification-pipeline",
+    mlflow=True
+)
 
 if not dagshub_username:
 
