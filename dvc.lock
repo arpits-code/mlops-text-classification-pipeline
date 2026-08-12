@@ -111,9 +111,9 @@ stages:
     deps:
     - path: reports/experiment_info.json
       hash: md5
-      md5: e0700ddf0e3da3416d6e3650879420bd
-      size: 118
+      md5: f85d96592a6c98eb84a59206c9104cda
+      size: 82
     - path: src/model/register_model.py
       hash: md5
-      md5: ed4a7f53d97241f422954a66ff102107
-      size: 10642
+      md5: bd28874fdd541c2ac39713c8bfb1d9b0
+      size: 3231
