@@ -1,4 +1,3 @@
-```yaml
 name: CI Pipeline
 
 on:
@@ -6,6 +5,7 @@ on:
 
 jobs:
   project-testing:
+
     runs-on: ubuntu-latest
 
     steps:
@@ -15,14 +15,14 @@ jobs:
       # =====================================================
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       # =====================================================
       # SETUP PYTHON
       # =====================================================
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
@@ -31,7 +31,7 @@ jobs:
       # =====================================================
 
       - name: Cache pip dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -65,29 +65,13 @@ jobs:
           dvc version
 
       # =====================================================
-      # CONFIGURE AWS CREDENTIALS
-      # =====================================================
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      # =====================================================
       # RUN DVC PIPELINE
       # =====================================================
 
       - name: Run pipeline
         env:
-          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
+          dagshubtoken: ${{ secrets.dagshubtoken }}
           dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
-
-          # variables expected by your data_ingestion.py
-          Accesskey: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          Secretkey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
         run: |
           dvc repro
 
@@ -125,4 +109,93 @@ jobs:
           dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
         run: |
           python -m unittest tests/test_flask_app.py
-```
+
+      # =====================================================
+      # CONFIGURE AWS CREDENTIALS
+      # =====================================================
+
+      - name: Configure AWS credentials
+        if: success()
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # =====================================================
+      # LOGIN TO ECR
+      # =====================================================
+
+      - name: Login to Amazon ECR
+        if: success()
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # =====================================================
+      # BUILD DOCKER IMAGE
+      # =====================================================
+
+      - name: Build Docker image
+        if: success()
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      # =====================================================
+      # PUSH TO ECR
+      # =====================================================
+
+      - name: Push image to Amazon ECR
+        if: success()
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      # =====================================================
+      # UPDATE DEPLOYMENT YAML
+      # =====================================================
+
+      - name: Update deployment manifest
+        if: success()
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          sed -i "s|<AWS_ACCOUNT_ID>|$AWS_ACCOUNT_ID|g" deployment.yaml
+          sed -i "s|:latest|:$IMAGE_TAG|g" deployment.yaml
+          cat deployment.yaml
+
+      # =====================================================
+      # DEPLOY TO EKS (Optional - can be triggered manually)
+      # =====================================================
+
+      - name: Configure kubectl
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          aws eks update-kubeconfig --name flask-app-cluster --region ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to EKS
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          kubectl apply -f deployment.yaml
+          kubectl rollout status deployment/flask-app -n flask-app --timeout=5m
+
+      # =====================================================
+      # VERIFY DEPLOYMENT
+      # =====================================================
+
+      - name: Verify EKS deployment
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          kubectl get pods -n flask-app
+          kubectl get svc -n flask-app
