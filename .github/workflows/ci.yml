@@ -1,7 +1,8 @@
-```yaml
+
 name: CI Pipeline
 
-on: push
+on:
+  push:
 
 jobs:
   project-testing:
@@ -37,4 +38,3 @@ jobs:
         run: |
           dvc repro
 
-      
