@@ -1,3 +1,4 @@
+```yaml
 name: CI Pipeline
 
 on:
@@ -65,14 +66,37 @@ jobs:
           dvc version
 
       # =====================================================
+      # CONFIGURE AWS CREDENTIALS
+      # =====================================================
+
+      - name: Configure AWS credentials
+        if: success()
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.ACCESSKEY }}
+          aws-secret-access-key: ${{ secrets.SECRETKEY }}
+          aws-region: eu-north-1
+
+      # =====================================================
+      # PULL DVC DATA
+      # =====================================================
+
+      - name: Pull DVC data
+        run: |
+          dvc pull
+
+      # =====================================================
       # RUN DVC PIPELINE
       # =====================================================
 
       - name: Run pipeline
         env:
-          dagshubtoken: ${{ secrets.dagshubtoken }}
-          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+          dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
+          Accesskey: ${{ secrets.ACCESSKEY }}
+          Secretkey: ${{ secrets.SECRETKEY }}
         run: |
+          python -c "import os; print('Accesskey exists:', bool(os.getenv('Accesskey'))); print('Secretkey exists:', bool(os.getenv('Secretkey')))"
           dvc repro
 
       # =====================================================
@@ -81,8 +105,8 @@ jobs:
 
       - name: Run model tests
         env:
-          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
-          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+          dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
         run: |
           python -m unittest tests/test_model.py
 
@@ -93,8 +117,8 @@ jobs:
       - name: Promote model to production
         if: success()
         env:
-          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
-          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+          dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
         run: |
           python scripts/promote_model.py
 
@@ -105,22 +129,10 @@ jobs:
       - name: Run Flask app tests
         if: success()
         env:
-          dagshubtoken: ${{ secrets.DAGSHUB_TOKEN }}
-          dagshubusername: ${{ secrets.DAGSHUB_USERNAME }}
+          dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
         run: |
           python -m unittest tests/test_flask_app.py
-
-      # =====================================================
-      # CONFIGURE AWS CREDENTIALS
-      # =====================================================
-
-      - name: Configure AWS credentials
-        if: success()
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
 
       # =====================================================
       # LOGIN TO ECR
@@ -182,7 +194,7 @@ jobs:
       - name: Configure kubectl
         if: success() && github.ref == 'refs/heads/main'
         run: |
-          aws eks update-kubeconfig --name flask-app-cluster --region ${{ secrets.AWS_REGION }}
+          aws eks update-kubeconfig --name flask-app-cluster --region eu-north-1
 
       - name: Deploy to EKS
         if: success() && github.ref == 'refs/heads/main'
@@ -199,3 +211,4 @@ jobs:
         run: |
           kubectl get pods -n flask-app
           kubectl get svc -n flask-app
+```
