@@ -90,3 +90,5 @@ target/
 
 data/interim/*.csv
 data/interim/*.csv
+
+data/processed/*.csv
