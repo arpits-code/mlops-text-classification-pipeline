@@ -1,159 +1,40 @@
+```yaml
 name: CI Pipeline
 
-on:
-push:
+on: push
 
 jobs:
-project-testing:
-runs-on: ubuntu-latest
+  project-testing:
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
 
-steps:
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
 
-  # =====================================================
-  # CHECKOUT CODE
-  # =====================================================
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-  - name: Checkout code
-    uses: actions/checkout@v3
+      - name: install dependencies
+        run: |
+          pip install -r requirements.txt
 
-  # =====================================================
-  # SETUP PYTHON
-  # =====================================================
+      - name: run pipeline
+        env:
+          Accesskey: ${{ secrets.ACCESSKEY }}
+          Secretkey: ${{ secrets.SECRETKEY }}
+          dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
+          dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
+        run: |
+          dvc repro
 
-  - name: Setup Python
-    uses: actions/setup-python@v4
-    with:
-      python-version: "3.10"
-
-  # =====================================================
-  # CACHE PIP
-  # =====================================================
-
-  - name: Cache pip dependencies
-    uses: actions/cache@v3
-    with:
-      path: ~/.cache/pip
-      key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-      restore-keys: |
-        ${{ runner.os }}-pip-
-
-  # =====================================================
-  # INSTALL DEPENDENCIES
-  # =====================================================
-
-  - name: Install dependencies
-    run: |
-      python -m pip install --upgrade pip
-      pip install wheel setuptools
-      pip install -r requirements.txt
-
-  # =====================================================
-  # INSTALL DVC
-  # =====================================================
-
-  - name: Install DVC
-    run: |
-      pip install "dvc[s3]"
-
-  # =====================================================
-  # VERIFY DVC INSTALLATION
-  # =====================================================
-
-  - name: Verify DVC
-    run: |
-      dvc version
-
-  # =====================================================
-  # CONFIGURE AWS CREDENTIALS
-  # =====================================================
-
-  - name: Configure AWS credentials
-    uses: aws-actions/configure-aws-credentials@v2
-    with:
-      aws-access-key-id: ${{ secrets.ACCESSKEY }}
-      aws-secret-access-key: ${{ secrets.SECRETKEY }}
-      aws-region: eu-north-1
-
-  # =====================================================
-  # PULL DVC DATA
-  # =====================================================
-
-  - name: Pull DVC data
-    run: |
-      dvc pull
-
-  # =====================================================
-  # RUN DVC PIPELINE
-  # =====================================================
-
-  - name: Run pipeline
-    env:
-      Accesskey: ${{ secrets.ACCESSKEY }}
-      Secretkey: ${{ secrets.SECRETKEY }}
-      dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
-      dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
-    run: |
-      python -c "import os; print('Accesskey exists:', bool(os.getenv('Accesskey'))); print('Secretkey exists:', bool(os.getenv('Secretkey')))"
-      dvc repro
-
-  # =====================================================
-  # RUN MODEL TESTS
-  # =====================================================
-
-  - name: Run model tests
-    env:
-      dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
-      dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
-    run: |
-      python -m unittest tests/test_model.py
-
-  # =====================================================
-  # RUN FLASK TESTS
-  # =====================================================
-
-  - name: Run Flask app tests
-    if: success()
-    env:
-      dagshubtoken: ${{ secrets.DAGSHUBTOKEN }}
-      dagshubusername: ${{ secrets.DAGSHUBUSERNAME }}
-    run: |
-      python -m unittest tests/test_flask_app.py
-
-  # =====================================================
-  # LOGIN TO ECR
-  # =====================================================
-
-  - name: Login to Amazon ECR
-    if: success()
-    id: login-ecr
-    uses: aws-actions/amazon-ecr-login@v1
-
-  # =====================================================
-  # BUILD DOCKER IMAGE
-  # =====================================================
-
-  - name: Build Docker image
-    if: success()
-    env:
-      ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-      IMAGE_TAG: ${{ github.sha }}
-    run: |
-      docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-      docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-  # =====================================================
-  # PUSH TO ECR
-  # =====================================================
-
-  - name: Push image to Amazon ECR
-    if: success()
-    env:
-      ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-      IMAGE_TAG: ${{ github.sha }}
-    run: |
-      docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
+      
